@@ -132,27 +132,76 @@ max_len = 30
 below_threshold_len(max_len, X_train)
 
 ## 패딩
-X_train = pad_sequences(X_train, maxlen=max_len)
-X_test = pad_sequences(X_test, maxlen=max_len)
+X_train = pad_sequences(X_train, padding='post', maxlen=max_len)
+X_test = pad_sequences(X_test, padding='post', maxlen=max_len)
 
 ## LSTM 활용 감성 분류
-from tensorflow.keras.layers import Embedding, Dense, LSTM
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, Dense, LSTM, Input, Conv1D, GlobalMaxPooling1D, Concatenate, Dropout, Flatten
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 ##
-model = Sequential()
-model.add(Embedding(vocab_size, 100))
-model.add(LSTM(128))
-model.add(Dense(1, activation='sigmoid'))
+embedding_dim = 128
+dropout_prob = (0.5, 0.8)
+num_filters = 128
 
 ##
+model_input = Input(shape = (max_len,))
+z = Embedding(vocab_size, embedding_dim, input_length = max_len, name="embedding")(model_input)
+z = Dropout(dropout_prob[0])(z)
+
+conv_blocks = []
+
+for sz in [3, 4, 5]:
+    conv = Conv1D(filters = num_filters,
+                         kernel_size = sz,
+                         padding = "valid",
+                         activation = "relu",
+                         strides = 1)(z)
+    conv = GlobalMaxPooling1D()(conv)
+    conv = Flatten()(conv)
+    conv_blocks.append(conv)
+
+z = Concatenate()(conv_blocks) if len(conv_blocks) > 1 else conv_blocks[0]
+z = Dropout(dropout_prob[1])(z)
+z = Dense(128, activation="relu")(z)
+model_output = Dense(1, activation="sigmoid")(z)
+
+model = Model(model_input, model_output)
+model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["acc"])
+
 es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=4)
-mc = ModelCheckpoint('best_model.h5', monitor='val_acc', mode='max', verbose=1, save_best_only=True)
+mc = ModelCheckpoint('CNN_model.h5', monitor='val_acc', mode='max', verbose=1, save_best_only=True)
 
-##
-model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['acc'])
-history = model.fit(X_train, y_train, epochs=15, callbacks=[es, mc], batch_size=60, validation_split=0.2)
-##
-
+model.fit(X_train, y_train, batch_size=64, epochs=10, validation_data=(X_test, y_test), verbose=2, callbacks=[es, mc])
+#
+# filters = [3, 4, 5]
+# conv_models = []
+# for filter in filters:
+#   conv_feat = Conv1D(filters=100,
+#                             kernel_size=filter,
+#                             activation='relu',
+#                             padding='valid')(seq_embedded) # Convolution Layer
+#   pooled_feat = GlobalMaxPooling1D()(conv_feat)  # MaxPooling
+#   flatten_feat = Flatten()(pooled_feat)
+#   conv_models.append(flatten_feat)
+#
+# conv_merged = Concatenate(conv_models)  # filter size가 2,3,4,5인 결과들 Concatenation
+#
+# model_output = Dropout(0.5)(conv_merged)
+# model_output = Dense(10, activation='relu')(model_output)
+# logits = Dense(1, activation='sigmoid')(model_output)
+#
+# model = Model(seq_input, logits)  # (입력,출력)
+# model.compile(optimizer='adam',
+#               loss='binary_crossentropy',
+#               metrics=['accuracy'])
+# model.summary()
+#
+# #학습 시작
+# history = model.fit(X_train, y_train,
+#                     epochs=10,
+#                     verbose=True,
+#                     validation_data=(X_test, y_test),
+#                     batch_size=128)
