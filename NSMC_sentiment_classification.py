@@ -95,7 +95,7 @@ print("전체 등장 빈도에서 희귀 단어 등장 빈도 비율:", (rare_fr
 # 전체 단어 개수 중 빈도수 2이하인 단어 개수는 제거.
 # 0번 패딩 토큰과 1번 OOV 토큰을 고려하여 +2
 vocab_size = total_cnt - rare_cnt + 2
-print('단어 집합의 크기 :',vocab_size)
+print('단어 집합의 크기 :', vocab_size)
 
 ##
 tokenizer = Tokenizer(vocab_size, oov_token='OOV')
@@ -134,25 +134,3 @@ below_threshold_len(max_len, X_train)
 ## 패딩
 X_train = pad_sequences(X_train, maxlen=max_len)
 X_test = pad_sequences(X_test, maxlen=max_len)
-
-## LSTM 활용 감성 분류
-from tensorflow.keras.layers import Embedding, Dense, LSTM
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.models import load_model
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-
-##
-model = Sequential()
-model.add(Embedding(vocab_size, 100))
-model.add(LSTM(128))
-model.add(Dense(1, activation='sigmoid'))
-
-##
-es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=4)
-mc = ModelCheckpoint('best_model.h5', monitor='val_acc', mode='max', verbose=1, save_best_only=True)
-
-##
-model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['acc'])
-history = model.fit(X_train, y_train, epochs=15, callbacks=[es, mc], batch_size=60, validation_split=0.2)
-##
-
