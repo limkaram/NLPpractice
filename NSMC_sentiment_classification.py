@@ -132,10 +132,9 @@ max_len = 30
 below_threshold_len(max_len, X_train)
 
 ## 패딩
-<<<<<<< HEAD
 X_train = pad_sequences(X_train, maxlen=max_len)
 X_test = pad_sequences(X_test, maxlen=max_len)
-=======
+
 X_train = pad_sequences(X_train, padding='post', maxlen=max_len)
 X_test = pad_sequences(X_test, padding='post', maxlen=max_len)
 
@@ -146,39 +145,40 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 ##
-embedding_dim = 128
+embedding_dim = 2024
 dropout_prob = (0.5, 0.8)
-num_filters = 128
+num_filters = 1024
 
 ##
-model_input = Input(shape = (max_len,))
-z = Embedding(vocab_size, embedding_dim, input_length = max_len, name="embedding")(model_input)
+model_input = Input(shape=(max_len,))
+z = Embedding(vocab_size, embedding_dim, input_length=max_len, name="embedding")(model_input)
 z = Dropout(dropout_prob[0])(z)
 
 conv_blocks = []
 
-for sz in [3, 4, 5]:
-    conv = Conv1D(filters = num_filters,
-                         kernel_size = sz,
-                         padding = "valid",
-                         activation = "relu",
-                         strides = 1)(z)
+for sz in [2, 3, 4, 5, 6, 7, 8]:
+    conv = Conv1D(filters=num_filters,
+                         kernel_size=sz,
+                         padding="valid",
+                         activation="relu",
+                         strides=1)(z)
     conv = GlobalMaxPooling1D()(conv)
     conv = Flatten()(conv)
     conv_blocks.append(conv)
 
 z = Concatenate()(conv_blocks) if len(conv_blocks) > 1 else conv_blocks[0]
 z = Dropout(dropout_prob[1])(z)
-z = Dense(128, activation="relu")(z)
+z = Dense(1024, activation="relu")(z)
+z = Dense(512, activation="relu")(z)
 model_output = Dense(1, activation="sigmoid")(z)
 
 model = Model(model_input, model_output)
 model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["acc"])
 
-es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=4)
-mc = ModelCheckpoint('CNN_model.h5', monitor='val_acc', mode='max', verbose=1, save_best_only=True)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=2, patience=4)
+mc = ModelCheckpoint('CNN_model.h5', monitor='val_acc', mode='max', verbose=2, save_best_only=True)
 
-model.fit(X_train, y_train, batch_size=64, epochs=10, validation_data=(X_test, y_test), verbose=2, callbacks=[es, mc])
+model.fit(X_train, y_train, batch_size=128, epochs=10, validation_data=(X_test, y_test), verbose=1, callbacks=[es, mc])
 #
 # filters = [3, 4, 5]
 # conv_models = []
@@ -209,4 +209,3 @@ model.fit(X_train, y_train, batch_size=64, epochs=10, validation_data=(X_test, y
 #                     verbose=True,
 #                     validation_data=(X_test, y_test),
 #                     batch_size=128)
->>>>>>> 6ad97e9a12412378879bf8cdbefd4f0b759b70a7
